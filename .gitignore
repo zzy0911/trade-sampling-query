@@ -3,6 +3,7 @@ __pycache__/
 .venv/
 .env
 .codex-work/
+release/
 data/
 *.db
 .pytest_cache/

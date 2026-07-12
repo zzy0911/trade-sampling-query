@@ -7,9 +7,12 @@ import json
 import mimetypes
 import os
 import re
+import sys
+import threading
 import time
 import traceback
 import uuid
+import webbrowser
 from email.parser import BytesParser
 from email.policy import default
 from http import HTTPStatus
@@ -23,9 +26,11 @@ from .database import Database
 from .importer import import_workbook
 
 
-ROOT = Path(__file__).resolve().parent.parent
-STATIC_DIR = ROOT / "static"
-DATA_DIR = Path(os.environ.get("DATA_DIR", ROOT / "data"))
+IS_FROZEN = bool(getattr(sys, "frozen", False))
+APP_ROOT = Path(sys.executable).resolve().parent if IS_FROZEN else Path(__file__).resolve().parent.parent
+RESOURCE_ROOT = Path(getattr(sys, "_MEIPASS", APP_ROOT)) if IS_FROZEN else APP_ROOT
+STATIC_DIR = RESOURCE_ROOT / "static"
+DATA_DIR = Path(os.environ.get("DATA_DIR", APP_ROOT / "data"))
 DB = Database(os.environ.get("DATABASE_PATH", DATA_DIR / "trade_query.db"))
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 
@@ -308,6 +313,12 @@ def run() -> None:
     server = ThreadingHTTPServer((host, port), AppHandler)
     print(f"“四下”贸易抽样调查数据查询已启动：http://127.0.0.1:{port}")
     print("局域网访问请使用：http://本机IP:%d" % port)
+    open_browser_setting = os.environ.get("OPEN_BROWSER")
+    should_open_browser = IS_FROZEN if open_browser_setting is None else open_browser_setting == "1"
+    if should_open_browser:
+        timer = threading.Timer(0.8, webbrowser.open, args=(f"http://127.0.0.1:{port}",))
+        timer.daemon = True
+        timer.start()
     try:
         server.serve_forever()
     except KeyboardInterrupt:

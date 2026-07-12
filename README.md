@@ -18,6 +18,10 @@ python -m venv .venv
 python -m pip install -r requirements.txt
 ```
 
+不安装 Python 的 Windows 用户可直接前往 GitHub 仓库的 Releases 页面，下载
+`trade-query-v0.1.0-windows-x64.zip`。完整解压后双击 `TradeQuery.exe` 即可使用。
+发行包不包含业务数据；数据始终保存在程序旁的 `data/` 目录中。
+
 ## 2. 导入现有测试数据
 
 ```powershell
