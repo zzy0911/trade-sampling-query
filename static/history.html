@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>明细查询｜“四下”贸易抽样调查</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">跳到主要内容</a>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="/" aria-label="“四下”贸易抽样调查数据查询首页"><span class="brand-mark" aria-hidden="true"></span><span class="brand-text">“四下”贸易抽样调查数据查询<span class="brand-sub">贸易抽样调查 · 内部数据服务</span></span></a>
+      <nav class="nav" aria-label="主导航"><a href="/">趋势总览</a><a class="active" aria-current="page" href="/history">明细查询</a><a href="/admin">数据管理</a></nav>
+    </div>
+  </header>
+  <main id="main-content" class="page">
+    <div class="page-heading"><div class="eyebrow">数据查询</div><h1>历年明细</h1><p>选择区域、行业、年份和季度，查看行业汇总及具体样本单位数据。</p></div>
+    <form id="filters" class="panel filter-panel filter-panel--history" aria-label="明细查询条件">
+      <div class="field"><label for="district">区域</label><select id="district"></select></div>
+      <div class="field"><label for="industry">行业</label><select id="industry"></select></div>
+      <div class="field"><label for="year">年份</label><select id="year"></select></div>
+      <div class="field"><label for="quarter">季度</label><select id="quarter"></select></div>
+      <div class="filter-actions">
+        <button class="button" type="submit">查询</button>
+        <button id="resetFilters" class="button secondary" type="button">重置</button>
+      </div>
+    </form>
+    <div id="notice" class="notice hidden" role="status" aria-live="polite" aria-atomic="true"></div>
+    <section class="panel section-panel" aria-labelledby="summaryTitle">
+      <div class="section-head"><div><h2 id="summaryTitle">行业汇总</h2><p>本季度与上年同期按样本单位汇总。</p></div></div>
+      <div class="table-wrap" tabindex="0" role="region" aria-label="行业汇总表，可左右滚动查看更多列">
+        <table>
+          <caption class="visually-hidden">所选区域和季度的行业汇总</caption>
+          <thead><tr><th scope="col">行业</th><th scope="col" class="number">样本单位</th><th scope="col" class="number">本季度</th><th scope="col" class="number">上年同期</th><th scope="col" class="number">同比增速</th></tr></thead>
+          <tbody id="summaryRows"></tbody>
+        </table>
+      </div>
+    </section>
+    <section class="panel section-panel" aria-labelledby="recordsTitle">
+      <div class="section-head">
+        <div><h2 id="recordsTitle">样本单位数据</h2><p>单位代码按文本展示，保留原始 18 位编码。</p></div>
+        <div class="section-tools">
+          <span id="recordCount" class="result-count" aria-live="polite">共 0 条</span>
+          <div class="field"><label for="search">单位搜索</label><input id="search" type="search" placeholder="名称、代码或街道" autocomplete="off"></div>
+        </div>
+      </div>
+      <div class="table-wrap" tabindex="0" role="region" aria-label="样本单位数据表，可左右滚动查看更多列">
+        <table class="wide-table">
+          <caption class="visually-hidden">所选区域和季度的样本单位数据</caption>
+          <thead><tr><th scope="col">区域 / 街道</th><th scope="col">单位代码</th><th scope="col">单位名称</th><th scope="col">行业</th><th scope="col" class="number">本季度</th><th scope="col" class="number">上年同期</th><th scope="col" class="number">同比</th><th scope="col">增幅说明</th></tr></thead>
+          <tbody id="recordRows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+  <footer class="footer">“四下”贸易抽样调查数据查询 · 企业内部数据服务</footer>
+  <script type="module" src="/static/history.js"></script>
+</body>
+</html>

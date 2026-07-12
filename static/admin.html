@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>数据管理｜“四下”贸易抽样调查</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">跳到主要内容</a>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="/" aria-label="“四下”贸易抽样调查数据查询首页"><span class="brand-mark" aria-hidden="true"></span><span class="brand-text">“四下”贸易抽样调查数据查询<span class="brand-sub">贸易抽样调查 · 内部数据服务</span></span></a>
+      <nav class="nav" aria-label="主导航"><a href="/">趋势总览</a><a href="/history">明细查询</a><a class="active" aria-current="page" href="/admin">数据管理</a></nav>
+    </div>
+  </header>
+  <main id="main-content" class="page">
+    <div class="page-heading"><div class="eyebrow">管理中心</div><h1>数据管理</h1><p>导入季度 Excel、查看导入记录，或修订已入库的样本单位数据。</p></div>
+    <div id="notice" class="notice hidden" role="status" aria-live="polite" aria-atomic="true"></div>
+
+    <section id="loginView" class="panel login-card hidden" aria-labelledby="loginHeading">
+      <h2 id="loginHeading">管理员认证</h2>
+      <p class="muted">请输入数据管理账户和密码。</p>
+      <form id="loginForm">
+        <div class="field"><label for="username">管理员账户</label><input id="username" autocomplete="username" required></div>
+        <div class="field"><label for="password">密码</label><input id="password" type="password" autocomplete="current-password" required></div>
+        <div class="form-actions"><button class="button" type="submit">登录</button><a class="button secondary" href="/">取消</a></div>
+      </form>
+    </section>
+
+    <div id="adminView" class="admin-layout hidden">
+      <aside class="panel admin-sidebar" aria-label="数据管理功能">
+        <h2 class="visually-hidden">数据管理功能</h2>
+        <div class="admin-tabs" role="tablist" aria-label="管理功能">
+          <button id="tabButtonImport" class="active" role="tab" aria-selected="true" aria-controls="tab-import" data-tab="import">数据导入</button>
+          <button id="tabButtonEdit" role="tab" aria-selected="false" aria-controls="tab-edit" data-tab="edit" tabindex="-1">数据修改</button>
+          <button id="tabButtonBatches" role="tab" aria-selected="false" aria-controls="tab-batches" data-tab="batches" tabindex="-1">导入记录</button>
+        </div>
+        <button id="logout" class="button secondary small" type="button">退出管理</button>
+      </aside>
+
+      <div class="admin-content">
+        <section id="tab-import" class="panel section-panel admin-section" role="tabpanel" aria-labelledby="tabButtonImport">
+          <div class="section-head"><div><h2>导入季度数据</h2><p>重复导入相同区域、年份和季度时，将以新文件覆盖更新。</p></div></div>
+          <form id="importForm" class="upload-drop">
+            <div class="form-grid">
+              <div class="field"><label for="importDistrict">区域</label><select id="importDistrict" name="district" required><option value="江北新区">江北新区</option><option value="浦口区">浦口区</option></select></div>
+              <div class="field"><label for="importYear">年份（可自动识别）</label><input id="importYear" name="year" type="number" min="2000" max="2100" placeholder="例如 2026" aria-describedby="yearHelp"><p id="yearHelp" class="field-help">留空时从文件名中的四位年份识别。</p></div>
+            </div>
+            <div class="field import-file-field"><label for="importFile">Excel 文件</label><input id="importFile" name="file" type="file" accept=".xlsx" aria-describedby="fileHelp" required><p id="fileHelp" class="field-help">仅支持 .xlsx，单个文件不超过 20 MB。</p></div>
+            <div class="form-actions"><button class="button" type="submit">导入数据</button></div>
+          </form>
+          <div id="importNotice" class="notice hidden" role="status" aria-live="polite" aria-atomic="true"></div>
+          <details class="rule-details"><summary>查看数据识别规则</summary><p>行业代码 51、52、61、62 开头分别识别为批发业、零售业、住宿业、餐饮业；同比由系统按汇总口径重新计算。</p></details>
+        </section>
+
+        <section id="tab-edit" class="panel section-panel admin-section hidden" role="tabpanel" aria-labelledby="tabButtonEdit" aria-hidden="true">
+          <div class="section-head"><div><h2>修改样本数据</h2><p>筛选后可修改本季度、上年同期和增幅说明。</p></div></div>
+          <form id="editFilters" class="filter-panel filter-panel--admin" aria-label="待修改数据筛选条件">
+            <div class="field"><label for="editDistrict">区域</label><select id="editDistrict"></select></div>
+            <div class="field"><label for="editIndustry">行业</label><select id="editIndustry"></select></div>
+            <div class="field"><label for="editYear">年份</label><select id="editYear"></select></div>
+            <div class="field"><label for="editQuarter">季度</label><select id="editQuarter"></select></div>
+            <button class="button" type="submit">查询</button>
+          </form>
+          <div class="table-wrap" tabindex="0" role="region" aria-label="可修改的样本单位数据表，可左右滚动查看更多列">
+            <table class="wide-table">
+              <caption class="visually-hidden">可修改的样本单位数据</caption>
+              <thead><tr><th scope="col">区域</th><th scope="col">单位名称</th><th scope="col">行业</th><th scope="col">指标</th><th scope="col">本季度</th><th scope="col">上年同期</th><th scope="col">增幅说明</th><th scope="col">操作</th></tr></thead>
+              <tbody id="editRows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="tab-batches" class="panel section-panel admin-section hidden" role="tabpanel" aria-labelledby="tabButtonBatches" aria-hidden="true">
+          <div class="section-head"><div><h2>导入记录</h2><p>显示最近 20 次导入结果。</p></div><button id="refreshBatches" class="button secondary small" type="button">刷新</button></div>
+          <div class="table-wrap" tabindex="0" role="region" aria-label="导入记录表，可左右滚动查看更多列">
+            <table class="wide-table">
+              <caption class="visually-hidden">最近 20 次数据导入记录</caption>
+              <thead><tr><th scope="col">时间</th><th scope="col">区域</th><th scope="col">年份</th><th scope="col">文件</th><th scope="col" class="number">行数</th><th scope="col">状态</th><th scope="col">说明</th></tr></thead>
+              <tbody id="batchRows"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+  <footer class="footer">“四下”贸易抽样调查数据查询 · 数据管理操作请使用专用管理员账户</footer>
+  <script type="module" src="/static/admin.js"></script>
+</body>
+</html>

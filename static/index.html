@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>“四下”贸易抽样调查数据查询</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">跳到主要内容</a>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="/" aria-label="“四下”贸易抽样调查数据查询首页">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-text">“四下”贸易抽样调查数据查询<span class="brand-sub">贸易抽样调查 · 内部数据服务</span></span>
+      </a>
+      <nav class="nav" aria-label="主导航">
+        <a class="active" aria-current="page" href="/">趋势总览</a>
+        <a href="/history">明细查询</a>
+        <a href="/admin">数据管理</a>
+      </nav>
+    </div>
+  </header>
+  <main id="main-content" class="page">
+    <div class="page-heading">
+      <div class="eyebrow">数据总览</div>
+      <h1>季度运行趋势</h1>
+      <p>按区域和行业查看样本单位汇总情况，同比增速由本季度与上年同期汇总值统一计算。</p>
+    </div>
+    <form id="filters" class="panel filter-panel" aria-label="趋势查询条件">
+      <div class="field"><label for="district">区域</label><select id="district"></select></div>
+      <div class="field"><label for="industry">行业</label><select id="industry"></select></div>
+      <div class="field"><label for="yearScope">年度范围</label><select id="yearScope"><option value="all">全部年度</option></select></div>
+      <div class="filter-actions">
+        <button class="button" type="submit">查询</button>
+        <button id="resetFilters" class="button secondary" type="button">重置</button>
+      </div>
+    </form>
+    <div id="notice" class="notice hidden" role="status" aria-live="polite" aria-atomic="true"></div>
+    <section class="kpi-grid" aria-label="最新季度关键指标">
+      <article class="panel kpi"><div class="kpi-label">最新季度</div><div id="latestQuarter" class="kpi-value">—</div><div class="kpi-note">当前筛选范围</div></article>
+      <article class="panel kpi"><div class="kpi-label">样本单位</div><div id="sampleCount" class="kpi-value">—</div><div class="kpi-note">最新季度记录数</div></article>
+      <article class="panel kpi"><div class="kpi-label">指标汇总值</div><div id="currentValue" class="kpi-value">—</div><div class="kpi-note">销售额 / 营业额汇总</div></article>
+      <article class="panel kpi"><div class="kpi-label">同比增速</div><div id="yoyRate" class="kpi-value">—</div><div class="kpi-note">较上年同期</div></article>
+    </section>
+    <section class="panel section-panel" aria-labelledby="trendHeading">
+      <div class="section-head">
+        <div><h2 id="trendHeading">同比增速趋势</h2><p>同一年份使用同一颜色，指向数据点可查看精确值。</p></div>
+        <a class="button secondary small" href="/history">查看明细</a>
+      </div>
+      <div id="chart" class="chart-shell" tabindex="0" aria-label="同比增速趋势图，可横向滚动" aria-describedby="quarterTableHeading" aria-live="polite"></div>
+    </section>
+    <section class="panel section-panel" aria-labelledby="quarterTableHeading">
+      <div class="section-head"><div><h2 id="quarterTableHeading">季度汇总</h2><p>按时间顺序展示当前查询结果。</p></div></div>
+      <div class="table-wrap" tabindex="0" role="region" aria-label="季度汇总表，可左右滚动查看更多列">
+        <table>
+          <caption class="visually-hidden">季度样本单位及同比增速汇总</caption>
+          <thead><tr><th scope="col">季度</th><th scope="col" class="number">样本单位</th><th scope="col" class="number">本季度</th><th scope="col" class="number">上年同期</th><th scope="col" class="number">同比增速</th></tr></thead>
+          <tbody id="trendRows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+  <footer class="footer">“四下”贸易抽样调查数据查询 · 企业内部数据服务</footer>
+  <script type="module" src="/static/home.js"></script>
+</body>
+</html>
