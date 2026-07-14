@@ -123,7 +123,9 @@ class AppHandler(BaseHTTPRequestHandler):
             self._serve_file(STATIC_DIR / pages[path])
             return
         if path.startswith("/static/"):
-            relative = path.removeprefix("/static/")
+            # Keep the packaged application compatible with Python 3.8,
+            # which is used for Windows 7 builds.
+            relative = path[len("/static/") :]
             target = (STATIC_DIR / relative).resolve()
             if STATIC_DIR.resolve() not in target.parents:
                 self._json({"error": "非法路径"}, HTTPStatus.BAD_REQUEST)

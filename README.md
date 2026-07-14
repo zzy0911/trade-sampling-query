@@ -19,8 +19,11 @@ python -m pip install -r requirements.txt
 ```
 
 不安装 Python 的 Windows 用户可直接前往 GitHub 仓库的 Releases 页面，下载
-`trade-query-v0.1.0-windows-x64.zip`。完整解压后双击 `TradeQuery.exe` 即可使用。
+`trade-query-v0.1.1-windows-x64.zip`（64 位）或
+`trade-query-v0.1.1-windows-x86.zip`（32 位）。完整解压后双击 `TradeQuery.exe` 即可使用。
 发行包不包含业务数据；数据始终保存在程序旁的 `data/` 目录中。
+v0.1.1 起使用 Python 3.8 兼容运行时，支持 Windows 7 SP1、Windows 8.1、Windows 10
+和 Windows 11。浏览器需使用 Chrome、Edge 或 Firefox，不支持 Internet Explorer。
 
 ## 2. 导入现有测试数据
 

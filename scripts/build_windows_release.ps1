@@ -1,15 +1,25 @@
 param(
-    [string]$Version = "v0.1.0",
-    [string]$Python = "python"
+    [string]$Version = "v0.1.1",
+    [string]$Python = "python",
+    [ValidateSet("x64", "x86")]
+    [string]$Architecture = "x64"
 )
 
 $ErrorActionPreference = "Stop"
 $ProjectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
-$WorkRoot = [IO.Path]::GetFullPath((Join-Path $ProjectRoot ".codex-work\packaging"))
+$WorkRoot = [IO.Path]::GetFullPath((Join-Path $ProjectRoot ".codex-work\packaging-$Architecture"))
 $ReleaseRoot = [IO.Path]::GetFullPath((Join-Path $ProjectRoot "release"))
 $ProductName = "TradeQuery"
 $CleanVersion = $Version.TrimStart("v")
-$ArchiveName = "trade-query-v$CleanVersion-windows-x64.zip"
+$ArchiveName = "trade-query-v$CleanVersion-windows-$Architecture.zip"
+
+$RuntimeInfo = & $Python -c "import platform, struct, sys; print('%d.%d|%s|%d' % (sys.version_info[0], sys.version_info[1], platform.python_implementation(), struct.calcsize('P') * 8))"
+if ($LASTEXITCODE -ne 0) { throw "Cannot inspect the build runtime" }
+$RuntimeParts = $RuntimeInfo.Trim().Split("|")
+$ExpectedBits = if ($Architecture -eq "x64") { "64" } else { "32" }
+if ($RuntimeParts[0] -ne "3.8" -or $RuntimeParts[1] -ne "CPython" -or $RuntimeParts[2] -ne $ExpectedBits) {
+    throw "Windows 7 packages must use CPython 3.8 with matching architecture. Found: $RuntimeInfo"
+}
 
 function Reset-ProjectDirectory([string]$Path) {
     $fullPath = [IO.Path]::GetFullPath($Path)
@@ -24,6 +34,10 @@ function Reset-ProjectDirectory([string]$Path) {
 
 Reset-ProjectDirectory $WorkRoot
 New-Item -ItemType Directory -Path $ReleaseRoot -Force | Out-Null
+$BuildHome = Join-Path $WorkRoot "home"
+New-Item -ItemType Directory -Path $BuildHome -Force | Out-Null
+$env:HOME = $BuildHome
+$env:USERPROFILE = $BuildHome
 
 & $Python -m PyInstaller `
     --noconfirm `
@@ -41,6 +55,9 @@ if ($LASTEXITCODE -ne 0) { throw "PyInstaller 构建失败" }
 $AppDirectory = Join-Path $WorkRoot "dist\$ProductName"
 Copy-Item -LiteralPath "$ProjectRoot\packaging\README-zh-CN.txt" -Destination $AppDirectory
 Copy-Item -LiteralPath "$ProjectRoot\packaging\change-admin-password.cmd" -Destination $AppDirectory
+
+& $Python "$ProjectRoot\scripts\verify_windows_compatibility.py" $AppDirectory --architecture $Architecture
+if ($LASTEXITCODE -ne 0) { throw "Windows compatibility audit failed" }
 
 $ArchivePath = Join-Path $ReleaseRoot $ArchiveName
 $ChecksumPath = "$ArchivePath.sha256"
