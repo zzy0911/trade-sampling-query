@@ -245,22 +245,46 @@ class Database:
         limit: int = 500,
     ) -> list[dict[str, Any]]:
         where, params = self._filters(district, industry, year, quarter)
+        previous_year = year if quarter > 1 else year - 1
+        previous_quarter = quarter - 1 if quarter > 1 else 4
         if search:
             where += " AND (unit_name LIKE ? OR unit_code LIKE ? OR subregion LIKE ?)"
             term = f"%{search}%"
             params.extend([term, term, term])
-        params.append(min(max(limit, 1), 2000))
+        query_params = [
+            previous_year,
+            previous_quarter,
+            previous_year,
+            previous_quarter,
+            *params,
+            min(max(limit, 1), 2000),
+        ]
         sql = f"""
             SELECT id, district, year, quarter, subregion, unit_code, unit_name,
                    industry_code, industry_name, metric_kind, current_value,
-                   previous_value, yoy_rate, explanation
+                   previous_value, yoy_rate, explanation,
+                   CASE
+                       WHEN EXISTS (
+                           SELECT 1 FROM records AS previous_any
+                           WHERE previous_any.district = records.district
+                             AND previous_any.year = ? AND previous_any.quarter = ?
+                       )
+                       AND NOT EXISTS (
+                           SELECT 1 FROM records AS previous_unit
+                           WHERE previous_unit.district = records.district
+                             AND previous_unit.year = ? AND previous_unit.quarter = ?
+                             AND previous_unit.unit_code = records.unit_code
+                             AND previous_unit.unit_name = records.unit_name
+                       )
+                       THEN 1 ELSE 0
+                   END AS is_new_unit
             FROM records
             WHERE {where}
             ORDER BY industry_name, subregion, unit_name
             LIMIT ?
         """
         with self.connect() as connection:
-            return [dict(row) for row in connection.execute(sql, params)]
+            return [dict(row) for row in connection.execute(sql, query_params)]
 
     def update_record(self, record_id: int, payload: dict[str, Any]) -> dict[str, Any]:
         current = numeric_or_none(payload.get("current_value"))

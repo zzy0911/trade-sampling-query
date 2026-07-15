@@ -32,7 +32,7 @@
       <div class="table-wrap" tabindex="0" role="region" aria-label="行业汇总表，可左右滚动查看更多列">
         <table>
           <caption class="visually-hidden">所选区域和季度的行业汇总</caption>
-          <thead><tr><th scope="col">行业</th><th scope="col" class="number">样本单位</th><th scope="col" class="number">本季度</th><th scope="col" class="number">上年同期</th><th scope="col" class="number">同比增速</th></tr></thead>
+          <thead><tr><th scope="col" aria-sort="none"><button class="sort-button" type="button" data-sort-table="summary" data-sort-key="industry_name">行业名称<span class="sort-indicator" aria-hidden="true">↕</span></button></th><th scope="col" class="number">样本单位</th><th scope="col" class="number" aria-sort="none"><button class="sort-button" type="button" data-sort-table="summary" data-sort-key="current_value"><span data-quarter-heading>本季度</span><span class="sort-indicator" aria-hidden="true">↕</span></button></th><th scope="col" class="number">上年同期</th><th scope="col" class="number" aria-sort="none"><button class="sort-button" type="button" data-sort-table="summary" data-sort-key="yoy_rate">同比增幅<span class="sort-indicator" aria-hidden="true">↕</span></button></th></tr></thead>
           <tbody id="summaryRows"></tbody>
         </table>
       </div>
@@ -41,6 +41,7 @@
       <div class="section-head">
         <div><h2 id="recordsTitle">样本单位数据</h2><p>单位代码按文本展示，保留原始 18 位编码。</p></div>
         <div class="section-tools">
+          <span id="newUnitLegend" class="new-unit-legend hidden">蓝色为新替换单位</span>
           <span id="recordCount" class="result-count" aria-live="polite">共 0 条</span>
           <div class="field"><label for="search">单位搜索</label><input id="search" type="search" placeholder="名称、代码或街道" autocomplete="off"></div>
         </div>
@@ -48,7 +49,7 @@
       <div class="table-wrap" tabindex="0" role="region" aria-label="样本单位数据表，可左右滚动查看更多列">
         <table class="wide-table">
           <caption class="visually-hidden">所选区域和季度的样本单位数据</caption>
-          <thead><tr><th scope="col">区域 / 街道</th><th scope="col">单位代码</th><th scope="col">单位名称</th><th scope="col">行业</th><th scope="col" class="number">本季度</th><th scope="col" class="number">上年同期</th><th scope="col" class="number">同比</th><th scope="col">增幅说明</th></tr></thead>
+          <thead><tr><th scope="col">区域 / 街道</th><th scope="col">单位代码</th><th scope="col">单位名称</th><th scope="col" aria-sort="none"><button class="sort-button" type="button" data-sort-table="records" data-sort-key="industry_name">行业名称<span class="sort-indicator" aria-hidden="true">↕</span></button></th><th scope="col" class="number" aria-sort="none"><button class="sort-button" type="button" data-sort-table="records" data-sort-key="current_value"><span data-quarter-heading>本季度</span><span class="sort-indicator" aria-hidden="true">↕</span></button></th><th scope="col" class="number">上年同期</th><th scope="col" class="number" aria-sort="none"><button class="sort-button" type="button" data-sort-table="records" data-sort-key="yoy_rate">同比增幅<span class="sort-indicator" aria-hidden="true">↕</span></button></th><th scope="col">增幅说明</th></tr></thead>
           <tbody id="recordRows"></tbody>
         </table>
       </div>

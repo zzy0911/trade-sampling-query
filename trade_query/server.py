@@ -36,7 +36,7 @@ MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 
 
 class AppHandler(BaseHTTPRequestHandler):
-    server_version = "TradeQuery/0.1"
+    server_version = "TradeQuery/0.1.2"
 
     def do_GET(self) -> None:  # noqa: N802
         try:

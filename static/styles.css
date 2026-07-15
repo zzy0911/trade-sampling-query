@@ -328,6 +328,23 @@ h1 {
 .section-head p { margin-bottom: 0; color: var(--muted); font-size: 13px; }
 .section-tools { display: flex; align-items: flex-end; gap: 10px; }
 .result-count { color: var(--muted); font-size: 13px; white-space: nowrap; }
+.new-unit-legend {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.new-unit-legend::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  display: inline-block;
+  margin-right: 6px;
+  background: var(--accent);
+  border-radius: 50%;
+  vertical-align: 1px;
+}
+.new-unit { color: var(--accent); font-weight: 700; }
 
 .chart-shell { position: relative; overflow-x: auto; }
 .chart-shell svg { display: block; width: 100%; min-width: 680px; height: auto; }
@@ -378,6 +395,26 @@ th {
   font-weight: 700;
   white-space: nowrap;
 }
+
+.sort-button {
+  width: 100%;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  font-weight: inherit;
+  text-align: inherit;
+  white-space: nowrap;
+}
+
+th.number .sort-button { justify-content: flex-end; }
+.sort-button:hover { color: var(--accent); }
+.sort-indicator { color: #748793; font-size: 13px; line-height: 1; }
+.sort-button[data-direction="asc"] .sort-indicator,
+.sort-button[data-direction="desc"] .sort-indicator { color: var(--accent); }
 
 td {
   padding: 10px 12px;

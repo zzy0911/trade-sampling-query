@@ -1,4 +1,4 @@
-import { api, escapeHtml, formatNumber, formatPercent, hideNotice, rateClass, renderTrendChart, setOptions, showNotice } from "/static/app.js";
+import { api, escapeHtml, formatNumber, formatPercent, formatQuarter, hideNotice, lastItem, rateClass, renderTrendChart, setOptions, showNotice } from "/static/app.js";
 
 const form = document.querySelector("#filters");
 const district = document.querySelector("#district");
@@ -31,8 +31,8 @@ async function query() {
 }
 
 function renderKpis(items) {
-  const latest = items.at(-1);
-  document.querySelector("#latestQuarter").textContent = latest ? `${latest.year} Q${latest.quarter}` : "—";
+  const latest = lastItem(items);
+  document.querySelector("#latestQuarter").textContent = latest ? formatQuarter(latest.year, latest.quarter) : "—";
   document.querySelector("#sampleCount").textContent = latest ? formatNumber(latest.sample_count, 0) : "—";
   document.querySelector("#currentValue").textContent = latest ? formatNumber(latest.current_value) : "—";
   const rate = document.querySelector("#yoyRate");

@@ -1,4 +1,4 @@
-import { api, escapeHtml, formatPercent, hideNotice, setOptions, showNotice } from "/static/app.js";
+import { api, escapeHtml, formatPercent, hideNotice, lastItem, setOptions, showNotice } from "/static/app.js";
 
 const notice = document.querySelector("#notice");
 const importNotice = document.querySelector("#importNotice");
@@ -30,8 +30,8 @@ async function loadAdmin() {
   options = await api("/api/options");
   setOptions(document.querySelector("#editDistrict"), options.districts, { allLabel: "两区合计" });
   setOptions(document.querySelector("#editIndustry"), options.industries, { allLabel: "全行业合计" });
-  setOptions(document.querySelector("#editYear"), options.years, { selected: options.years.at(-1) });
-  setOptions(document.querySelector("#editQuarter"), options.quarters, { selected: options.quarters.at(-1) });
+  setOptions(document.querySelector("#editYear"), options.years, { selected: lastItem(options.years) });
+  setOptions(document.querySelector("#editQuarter"), options.quarters, { selected: lastItem(options.quarters) });
   await loadBatches();
 }
 

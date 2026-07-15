@@ -11,6 +11,14 @@ export async function api(url, options = {}) {
   return data;
 }
 
+export function lastItem(items) {
+  return items.length ? items[items.length - 1] : undefined;
+}
+
+export function formatQuarter(year, quarter) {
+  return `${year}年第${quarter}季度`;
+}
+
 export function setOptions(select, items, { allLabel, selected } = {}) {
   const values = allLabel ? [{ value: "all", label: allLabel }] : [];
   values.push(...items.map((item) => ({ value: String(item), label: String(item) })));
@@ -90,7 +98,7 @@ export function renderTrendChart(container, items) {
   if (min < 0 && max > 0) svg += `<line class="chart-zero" x1="${margin.left}" x2="${width - margin.right}" y1="${y(0)}" y2="${y(0)}"/>`;
   svg += `<line class="chart-axis" x1="${margin.left}" x2="${width - margin.right}" y1="${height - margin.bottom}" y2="${height - margin.bottom}"/>`;
   ordered.forEach((item, index) => {
-    svg += `<text class="chart-label" x="${x(index)}" y="${height - margin.bottom + 25}" text-anchor="middle">${item.year} Q${item.quarter}</text>`;
+    svg += `<text class="chart-label" x="${x(index)}" y="${height - margin.bottom + 25}" text-anchor="middle">${formatQuarter(item.year, item.quarter)}</text>`;
   });
   years.forEach((year, yearIndex) => {
     const points = ordered.map((item, index) => ({ item, index })).filter(({ item }) => item.year === year && item.yoy_rate != null);
