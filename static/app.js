@@ -7,7 +7,12 @@ export async function api(url, options = {}) {
     headers: { ...(options.body instanceof FormData ? {} : { "Content-Type": "application/json" }), ...(options.headers || {}) },
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || `请求失败（${response.status}）`);
+  if (!response.ok) {
+    const error = new Error(data.error || `请求失败（${response.status}）`);
+    error.status = response.status;
+    error.code = data.code || "";
+    throw error;
+  }
   return data;
 }
 

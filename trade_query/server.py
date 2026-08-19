@@ -23,7 +23,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from .database import Database
-from .importer import import_workbook
+from .importer import DuplicateSourceFileError, import_workbook
 
 
 IS_FROZEN = bool(getattr(sys, "frozen", False))
@@ -36,7 +36,7 @@ MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 
 
 class AppHandler(BaseHTTPRequestHandler):
-    server_version = "TradeQuery/0.1.2"
+    server_version = "TradeQuery/0.1.3"
 
     def do_GET(self) -> None:  # noqa: N802
         try:
@@ -66,6 +66,18 @@ class AppHandler(BaseHTTPRequestHandler):
     def do_PUT(self) -> None:  # noqa: N802
         try:
             parsed = urlparse(self.path)
+            public_match = re.fullmatch(r"/api/records/(\d+)/explanation", parsed.path)
+            if public_match:
+                payload = self._read_json()
+                if "explanation" not in payload or not isinstance(
+                    payload["explanation"], (str, type(None))
+                ):
+                    raise ValueError("增幅说明格式不正确")
+                record = DB.update_explanation(
+                    int(public_match.group(1)), payload["explanation"]
+                )
+                self._json({"record": record})
+                return
             match = re.fullmatch(r"/api/admin/records/(\d+)", parsed.path)
             if not match:
                 self._json({"error": "接口不存在"}, HTTPStatus.NOT_FOUND)
@@ -90,8 +102,17 @@ class AppHandler(BaseHTTPRequestHandler):
             district, industry, year, quarter = query_filters(query)
             self._json({"items": DB.summary(district, industry, year, quarter)})
             return
+        if path == "/api/subregions":
+            district, industry, year, quarter = query_filters(query)
+            self._json({"items": DB.subregions(district, industry, year, quarter)})
+            return
         if path == "/api/records":
             district, industry, year, quarter = query_filters(query)
+            search = first(query, "search", "")
+            subregion = first(query, "subregion", "all")
+            replacement = first(query, "replacement", "all")
+            if replacement not in {"all", "new", "existing"}:
+                raise ValueError("单位类型筛选值无效")
             self._json(
                 {
                     "items": DB.records(
@@ -99,8 +120,19 @@ class AppHandler(BaseHTTPRequestHandler):
                         industry,
                         year,
                         quarter,
-                        search=first(query, "search", ""),
-                    )
+                        search=search,
+                        subregion=subregion,
+                        replacement=replacement,
+                    ),
+                    "total": DB.record_count(
+                        district,
+                        industry,
+                        year,
+                        quarter,
+                        search=search,
+                        subregion=subregion,
+                        replacement=replacement,
+                    ),
                 }
             )
             return
@@ -110,6 +142,16 @@ class AppHandler(BaseHTTPRequestHandler):
         if path == "/api/admin/batches":
             self._require_admin()
             self._json({"items": DB.recent_batches()})
+            return
+        if path == "/api/admin/import-conflict":
+            self._require_admin()
+            filename = source_filename(first(query, "filename", ""))
+            if not filename.lower().endswith(".xlsx"):
+                raise ValueError("请选择 .xlsx 文件")
+            matches = DB.matching_source_files(
+                filename, [safe_upload_filename(filename)]
+            )
+            self._json({"conflict": bool(matches), "source_file": filename})
             return
         self._json({"error": "接口不存在"}, HTTPStatus.NOT_FOUND)
 
@@ -204,15 +246,48 @@ class AppHandler(BaseHTTPRequestHandler):
             raise ValueError("请选择 .xlsx 文件")
         district = fields.get("district", "").strip()
         year = int(fields["year"]) if fields.get("year") else None
+        overwrite = fields.get("overwrite") == "1"
+        safe_name = safe_upload_filename(filename)
+        matches = DB.matching_source_files(filename, [safe_name])
+        if matches and not overwrite:
+            self._json(
+                {
+                    "error": "已导入同名数据，确认后将覆盖原数据",
+                    "code": "duplicate_source_file",
+                },
+                HTTPStatus.CONFLICT,
+            )
+            return
         upload_dir = DATA_DIR / "uploads"
         upload_dir.mkdir(parents=True, exist_ok=True)
-        safe_name = re.sub(r"[^0-9A-Za-z\u4e00-\u9fff（）()_.-]", "_", filename)
         batch_dir = upload_dir / uuid.uuid4().hex[:10]
         batch_dir.mkdir(parents=True, exist_ok=True)
         stored_path = batch_dir / safe_name
         stored_path.write_bytes(file_bytes)
-        result = import_workbook(DB, stored_path, district, year)
-        result["source_file"] = filename
+        try:
+            result = import_workbook(
+                DB,
+                stored_path,
+                district,
+                year,
+                source_name=filename,
+                overwrite=overwrite,
+                source_aliases=[safe_name],
+            )
+        except DuplicateSourceFileError:
+            stored_path.unlink(missing_ok=True)
+            try:
+                batch_dir.rmdir()
+            except OSError:
+                pass
+            self._json(
+                {
+                    "error": "已导入同名数据，确认后将覆盖原数据",
+                    "code": "duplicate_source_file",
+                },
+                HTTPStatus.CONFLICT,
+            )
+            return
         self._json({"result": result}, HTTPStatus.CREATED)
 
     def _read_json(self) -> dict[str, Any]:
@@ -242,14 +317,17 @@ class AppHandler(BaseHTTPRequestHandler):
     def _handle_error(self, exc: Exception) -> None:
         if isinstance(exc, PermissionError):
             status = HTTPStatus.UNAUTHORIZED
-        elif isinstance(exc, (ValueError, KeyError, json.JSONDecodeError)):
+        elif isinstance(exc, KeyError):
+            status = HTTPStatus.NOT_FOUND
+        elif isinstance(exc, (ValueError, json.JSONDecodeError)):
             status = HTTPStatus.BAD_REQUEST
         else:
             status = HTTPStatus.INTERNAL_SERVER_ERROR
             traceback.print_exc()
         if not self.wfile.closed:
             try:
-                self._json({"error": str(exc)}, status)
+                message = exc.args[0] if isinstance(exc, KeyError) and exc.args else str(exc)
+                self._json({"error": message}, status)
             except (BrokenPipeError, ConnectionResetError):
                 pass
 
@@ -257,6 +335,14 @@ class AppHandler(BaseHTTPRequestHandler):
 def first(query: dict[str, list[str]], key: str, default_value: str) -> str:
     values = query.get(key)
     return values[0] if values else default_value
+
+
+def source_filename(value: str) -> str:
+    return Path(value.strip()).name
+
+
+def safe_upload_filename(filename: str) -> str:
+    return re.sub(r"[^0-9A-Za-z\u4e00-\u9fff（）()_.-]", "_", source_filename(filename))
 
 
 def decode_multipart_text(part: Any) -> str:

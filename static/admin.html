@@ -41,7 +41,7 @@
 
       <div class="admin-content">
         <section id="tab-import" class="panel section-panel admin-section" role="tabpanel" aria-labelledby="tabButtonImport">
-          <div class="section-head"><div><h2>导入季度数据</h2><p>重复导入相同区域、年份和季度时，将以新文件覆盖更新。</p></div></div>
+          <div class="section-head"><div><h2>导入季度数据</h2><p>同名文件需确认后全量覆盖；不同名文件将追加或更新对应单位。</p></div></div>
           <form id="importForm" class="upload-drop">
             <div class="form-grid">
               <div class="field"><label for="importDistrict">区域</label><select id="importDistrict" name="district" required><option value="江北新区">江北新区</option><option value="浦口区">浦口区</option></select></div>
@@ -85,6 +85,17 @@
       </div>
     </div>
   </main>
+  <div id="duplicateDialog" class="modal-backdrop hidden">
+    <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="duplicateDialogTitle" aria-describedby="duplicateDialogMessage">
+      <div class="modal-kicker">导入确认</div>
+      <h2 id="duplicateDialogTitle">覆盖同名数据</h2>
+      <p id="duplicateDialogMessage">已导入同名数据，确认后将覆盖原数据</p>
+      <div class="modal-actions">
+        <button id="cancelOverwrite" class="button secondary" type="button">取消</button>
+        <button id="confirmOverwrite" class="button danger" type="button">确定</button>
+      </div>
+    </section>
+  </div>
   <footer class="footer">“四下”贸易抽样调查数据查询 · 数据管理操作请使用专用管理员账户</footer>
   <script type="module" src="/static/admin.js"></script>
 </body>
