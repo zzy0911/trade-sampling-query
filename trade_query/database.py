@@ -3,8 +3,10 @@ from __future__ import annotations
 import hashlib
 import hmac
 import os
+import re
 import secrets
 import sqlite3
+import unicodedata
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -73,6 +75,7 @@ class Database:
     def connect(self) -> Iterator[sqlite3.Connection]:
         connection = sqlite3.connect(self.path)
         connection.row_factory = sqlite3.Row
+        connection.create_function("normalize_subregion", 1, normalize_subregion)
         connection.execute("PRAGMA foreign_keys = ON")
         try:
             yield connection
@@ -148,6 +151,48 @@ class Database:
             "industries": ["批发业", "零售业", "住宿业", "餐饮业"],
             "quarters": quarters or [1, 2, 3, 4],
         }
+
+    def matching_source_files(
+        self,
+        source_file: str,
+        aliases: list[str] | None = None,
+        connection: sqlite3.Connection | None = None,
+    ) -> list[str]:
+        candidates = {
+            normalize_source_name(name)
+            for name in [source_file, *(aliases or [])]
+            if clean_text(name)
+        }
+        signatures = {
+            source_name_signature(name)
+            for name in [source_file, *(aliases or [])]
+            if source_name_signature(name)
+        }
+
+        def find(active_connection: sqlite3.Connection) -> list[str]:
+            rows = active_connection.execute(
+                "SELECT DISTINCT source_file FROM records"
+            ).fetchall()
+            matches: list[str] = []
+            for row in rows:
+                stored_name = str(row["source_file"])
+                exact_match = normalize_source_name(stored_name) in candidates
+                # v0.1.1 and earlier could persist replacement characters when
+                # a Python 3.8 Windows runtime decoded a Chinese path.  Only use
+                # the ASCII stem fallback for those visibly damaged names so
+                # ordinary Chinese-only filenames can never collide broadly.
+                legacy_match = (
+                    "\ufffd" in stored_name
+                    and source_name_signature(stored_name) in signatures
+                )
+                if exact_match or legacy_match:
+                    matches.append(stored_name)
+            return matches
+
+        if connection is not None:
+            return find(connection)
+        with self.connect() as own_connection:
+            return find(own_connection)
 
     @staticmethod
     def _filters(
@@ -235,15 +280,32 @@ class Database:
             result.append({**dict(row), "yoy_rate": yoy})
         return result
 
-    def records(
+    def subregions(
+        self, district: str, industry: str, year: int, quarter: int
+    ) -> list[str]:
+        where, params = self._filters(district, industry, year, quarter)
+        with self.connect() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT DISTINCT normalize_subregion(subregion) AS subregion
+                FROM records
+                WHERE {where} AND normalize_subregion(subregion) <> ''
+                ORDER BY subregion
+                """,
+                params,
+            ).fetchall()
+        return [str(row["subregion"]) for row in rows]
+
+    def _record_selection(
         self,
         district: str,
         industry: str,
         year: int,
         quarter: int,
-        search: str = "",
-        limit: int = 500,
-    ) -> list[dict[str, Any]]:
+        search: str,
+        subregion: str,
+        replacement: str,
+    ) -> tuple[str, list[Any]]:
         where, params = self._filters(district, industry, year, quarter)
         previous_year = year if quarter > 1 else year - 1
         previous_quarter = quarter - 1 if quarter > 1 else 4
@@ -251,40 +313,84 @@ class Database:
             where += " AND (unit_name LIKE ? OR unit_code LIKE ? OR subregion LIKE ?)"
             term = f"%{search}%"
             params.extend([term, term, term])
-        query_params = [
+        if subregion and subregion != "all":
+            where += " AND normalize_subregion(subregion) = ?"
+            params.append(normalize_subregion(subregion))
+        replacement_clause = "1 = 1"
+        if replacement == "new":
+            replacement_clause = "is_new_unit = 1"
+        elif replacement == "existing":
+            replacement_clause = "is_new_unit = 0"
+        sql = f"""
+            WITH marked_records AS (
+                SELECT id, district, year, quarter,
+                       normalize_subregion(subregion) AS subregion,
+                       unit_code, unit_name,
+                       industry_code, industry_name, metric_kind, current_value,
+                       previous_value, yoy_rate, explanation,
+                       CASE
+                           WHEN EXISTS (
+                               SELECT 1 FROM records AS previous_any
+                               WHERE previous_any.district = records.district
+                                 AND previous_any.year = ? AND previous_any.quarter = ?
+                           )
+                           AND NOT EXISTS (
+                               SELECT 1 FROM records AS previous_unit
+                               WHERE previous_unit.district = records.district
+                                 AND previous_unit.year = ? AND previous_unit.quarter = ?
+                                 AND previous_unit.unit_code = records.unit_code
+                                 AND previous_unit.unit_name = records.unit_name
+                           )
+                           THEN 1 ELSE 0
+                       END AS is_new_unit
+                FROM records
+                WHERE {where}
+            )
+            SELECT * FROM marked_records WHERE {replacement_clause}
+        """
+        return sql, [
             previous_year,
             previous_quarter,
             previous_year,
             previous_quarter,
             *params,
-            min(max(limit, 1), 2000),
         ]
-        sql = f"""
-            SELECT id, district, year, quarter, subregion, unit_code, unit_name,
-                   industry_code, industry_name, metric_kind, current_value,
-                   previous_value, yoy_rate, explanation,
-                   CASE
-                       WHEN EXISTS (
-                           SELECT 1 FROM records AS previous_any
-                           WHERE previous_any.district = records.district
-                             AND previous_any.year = ? AND previous_any.quarter = ?
-                       )
-                       AND NOT EXISTS (
-                           SELECT 1 FROM records AS previous_unit
-                           WHERE previous_unit.district = records.district
-                             AND previous_unit.year = ? AND previous_unit.quarter = ?
-                             AND previous_unit.unit_code = records.unit_code
-                             AND previous_unit.unit_name = records.unit_name
-                       )
-                       THEN 1 ELSE 0
-                   END AS is_new_unit
-            FROM records
-            WHERE {where}
-            ORDER BY industry_name, subregion, unit_name
-            LIMIT ?
-        """
+
+    def records(
+        self,
+        district: str,
+        industry: str,
+        year: int,
+        quarter: int,
+        search: str = "",
+        subregion: str = "all",
+        replacement: str = "all",
+        limit: int = 500,
+    ) -> list[dict[str, Any]]:
+        sql, params = self._record_selection(
+            district, industry, year, quarter, search, subregion, replacement
+        )
+        sql += " ORDER BY industry_name, subregion, unit_name LIMIT ?"
+        params.append(min(max(limit, 1), 2000))
         with self.connect() as connection:
-            return [dict(row) for row in connection.execute(sql, query_params)]
+            return [dict(row) for row in connection.execute(sql, params)]
+
+    def record_count(
+        self,
+        district: str,
+        industry: str,
+        year: int,
+        quarter: int,
+        search: str = "",
+        subregion: str = "all",
+        replacement: str = "all",
+    ) -> int:
+        sql, params = self._record_selection(
+            district, industry, year, quarter, search, subregion, replacement
+        )
+        count_sql = f"SELECT COUNT(*) FROM ({sql}) AS selected_records"
+        with self.connect() as connection:
+            return int(connection.execute(count_sql, params).fetchone()[0])
 
     def update_record(self, record_id: int, payload: dict[str, Any]) -> dict[str, Any]:
         current = numeric_or_none(payload.get("current_value"))
@@ -306,6 +412,22 @@ class Database:
             raise KeyError("记录不存在")
         return dict(row)
 
+    def update_explanation(self, record_id: int, explanation: Any) -> dict[str, Any]:
+        value = clean_text(explanation) or None
+        updated_at = utc_now()
+        with self.connect() as connection:
+            cursor = connection.execute(
+                "UPDATE records SET explanation = ?, updated_at = ? WHERE id = ?",
+                (value, updated_at, record_id),
+            )
+            if cursor.rowcount == 0:
+                raise KeyError("记录不存在")
+            row = connection.execute(
+                "SELECT id, explanation, updated_at FROM records WHERE id = ?",
+                (record_id,),
+            ).fetchone()
+        return dict(row)
+
     def recent_batches(self, limit: int = 20) -> list[dict[str, Any]]:
         with self.connect() as connection:
             rows = connection.execute(
@@ -316,6 +438,23 @@ class Database:
 
 def clean_text(value: Any) -> str:
     return "" if value is None else str(value).strip()
+
+
+def normalize_subregion(value: Any) -> str:
+    """Return a street name without the trailing statistical area code."""
+    name = clean_text(value)
+    return re.sub(r"\s*[（(]\s*\d{9,18}\s*[）)]\s*$", "", name).strip()
+
+
+def normalize_source_name(value: Any) -> str:
+    name = Path(clean_text(value)).name
+    return unicodedata.normalize("NFC", name).casefold()
+
+
+def source_name_signature(value: Any) -> str:
+    stem = Path(clean_text(value)).stem
+    signature = re.sub(r"[^0-9A-Za-z]", "", stem).casefold()
+    return signature if len(signature) >= 3 else ""
 
 
 def numeric_or_none(value: Any) -> float | None:

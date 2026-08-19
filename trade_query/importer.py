@@ -8,7 +8,7 @@ from typing import Any, Iterable
 
 from openpyxl import load_workbook
 
-from .database import Database, clean_text, numeric_or_none, utc_now
+from .database import Database, clean_text, normalize_subregion, numeric_or_none, utc_now
 
 
 INDUSTRIES = {
@@ -17,6 +17,10 @@ INDUSTRIES = {
     "61": ("住宿业", "营业额"),
     "62": ("餐饮业", "营业额"),
 }
+
+
+class DuplicateSourceFileError(ValueError):
+    """Raised when an existing source file needs explicit overwrite consent."""
 
 
 def industry_info(code: Any) -> tuple[str, str] | None:
@@ -98,8 +102,14 @@ def _cell(row: tuple[Any, ...], columns: dict[str, int], name: str) -> Any:
     return None if index is None or index >= len(row) else row[index]
 
 
-def read_workbook(path: str | Path, district: str, year: int) -> list[dict[str, Any]]:
+def read_workbook(
+    path: str | Path,
+    district: str,
+    year: int,
+    source_name: str | None = None,
+) -> list[dict[str, Any]]:
     source_path = Path(path)
+    source_file = Path(source_name or source_path.name).name
     workbook = load_workbook(source_path, read_only=True, data_only=True)
     records: list[dict[str, Any]] = []
     try:
@@ -141,7 +151,7 @@ def read_workbook(path: str | Path, district: str, year: int) -> list[dict[str, 
                         "district": district,
                         "year": year,
                         "quarter": quarter,
-                        "subregion": clean_text(_cell(row, columns, "subregion")),
+                        "subregion": normalize_subregion(_cell(row, columns, "subregion")),
                         "unit_code": normalize_code(_cell(row, columns, "unit_code")),
                         "unit_name": unit_name,
                         "industry_code": industry_code,
@@ -151,7 +161,7 @@ def read_workbook(path: str | Path, district: str, year: int) -> list[dict[str, 
                         "previous_value": previous,
                         "yoy_rate": yoy,
                         "explanation": explanation or None,
-                        "source_file": source_path.name,
+                        "source_file": source_file,
                     }
                 )
     finally:
@@ -162,10 +172,18 @@ def read_workbook(path: str | Path, district: str, year: int) -> list[dict[str, 
 
 
 def import_workbook(
-    database: Database, path: str | Path, district: str, year: int | None = None
+    database: Database,
+    path: str | Path,
+    district: str,
+    year: int | None = None,
+    *,
+    source_name: str | None = None,
+    overwrite: bool = False,
+    source_aliases: list[str] | None = None,
 ) -> dict[str, Any]:
     source_path = Path(path)
-    selected_year = year or extract_year(source_path.name)
+    source_file = Path(source_name or source_path.name).name
+    selected_year = year or extract_year(source_file)
     if selected_year is None:
         raise ValueError("无法从文件名识别年份，请手工指定年份")
     if not (2000 <= selected_year <= 2100):
@@ -176,13 +194,21 @@ def import_workbook(
 
     now = utc_now()
     try:
-        records = read_workbook(source_path, district, selected_year)
+        # Parse and validate the full workbook before opening the replacement
+        # transaction so a malformed upload can never erase working data.
+        records = read_workbook(source_path, district, selected_year, source_file)
         with database.connect() as connection:
-            quarters = sorted({record["quarter"] for record in records})
-            connection.executemany(
-                "DELETE FROM records WHERE district = ? AND year = ? AND quarter = ?",
-                [(district, selected_year, quarter) for quarter in quarters],
+            matching_sources = database.matching_source_files(
+                source_file, source_aliases, connection
             )
+            if matching_sources and not overwrite:
+                raise DuplicateSourceFileError("已导入同名数据，确认后将覆盖原数据")
+            if matching_sources:
+                placeholders = ", ".join("?" for _ in matching_sources)
+                connection.execute(
+                    f"DELETE FROM records WHERE source_file IN ({placeholders})",
+                    matching_sources,
+                )
             connection.executemany(
                 """
                 INSERT INTO records(
@@ -220,9 +246,9 @@ def import_workbook(
                 (
                     district,
                     selected_year,
-                    source_path.name,
+                    source_file,
                     len(records),
-                    "导入或更新完成",
+                    "覆盖导入完成" if matching_sources else "导入或更新完成",
                     now,
                 ),
             )
@@ -231,9 +257,12 @@ def import_workbook(
             "batch_id": batch_id,
             "district": district,
             "year": selected_year,
-            "source_file": source_path.name,
+            "source_file": source_file,
             "imported_rows": len(records),
+            "overwritten": bool(matching_sources),
         }
+    except DuplicateSourceFileError:
+        raise
     except Exception as exc:
         with database.connect() as connection:
             connection.execute(
@@ -242,6 +271,6 @@ def import_workbook(
                     district, year, source_file, imported_rows, status, message, created_at
                 ) VALUES(?, ?, ?, 0, 'failed', ?, ?)
                 """,
-                (district, selected_year, source_path.name, str(exc), now),
+                (district, selected_year, source_file, str(exc), now),
             )
         raise

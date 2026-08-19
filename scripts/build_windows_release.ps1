@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "v0.1.2",
+    [string]$Version = "v0.1.3",
     [string]$Python = "python",
     [ValidateSet("x64", "x86")]
     [string]$Architecture = "x64"
@@ -36,8 +36,8 @@ Reset-ProjectDirectory $WorkRoot
 New-Item -ItemType Directory -Path $ReleaseRoot -Force | Out-Null
 $BuildHome = Join-Path $WorkRoot "home"
 New-Item -ItemType Directory -Path $BuildHome -Force | Out-Null
-$env:HOME = $BuildHome
 $env:USERPROFILE = $BuildHome
+$env:PYINSTALLER_CONFIG_DIR = $BuildHome
 
 & $Python -m PyInstaller `
     --noconfirm `

@@ -41,9 +41,10 @@
       <div class="section-head">
         <div><h2 id="recordsTitle">样本单位数据</h2><p>单位代码按文本展示，保留原始 18 位编码。</p></div>
         <div class="section-tools">
-          <span id="newUnitLegend" class="new-unit-legend hidden">蓝色为新替换单位</span>
+          <div class="field detail-filter"><label for="subregion">街道名称</label><select id="subregion"><option value="all">全部街道</option></select></div>
+          <div class="field detail-filter"><label for="replacement">单位类型</label><select id="replacement"><option value="all">全部单位</option><option value="new">仅新替换单位</option><option value="existing">非新替换单位</option></select></div>
           <span id="recordCount" class="result-count" aria-live="polite">共 0 条</span>
-          <div class="field"><label for="search">单位搜索</label><input id="search" type="search" placeholder="名称、代码或街道" autocomplete="off"></div>
+          <div class="field detail-search"><label for="search">单位搜索</label><input id="search" type="search" placeholder="名称、代码或街道" autocomplete="off"></div>
         </div>
       </div>
       <div class="table-wrap" tabindex="0" role="region" aria-label="样本单位数据表，可左右滚动查看更多列">

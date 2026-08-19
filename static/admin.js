@@ -4,6 +4,9 @@ const notice = document.querySelector("#notice");
 const importNotice = document.querySelector("#importNotice");
 const loginView = document.querySelector("#loginView");
 const adminView = document.querySelector("#adminView");
+const duplicateDialog = document.querySelector("#duplicateDialog");
+const cancelOverwrite = document.querySelector("#cancelOverwrite");
+const confirmOverwrite = document.querySelector("#confirmOverwrite");
 const tabButtons = [...document.querySelectorAll(".admin-tabs [role=tab]")];
 const batchDateFormatter = new Intl.DateTimeFormat("zh-CN", {
   timeZone: "Asia/Shanghai",
@@ -84,16 +87,74 @@ tabButtons.forEach((button) => {
   });
 });
 
+function confirmDuplicateImport() {
+  return new Promise((resolve) => {
+    const previousFocus = document.activeElement;
+    const focusable = [cancelOverwrite, confirmOverwrite];
+    const close = (confirmed) => {
+      duplicateDialog.classList.add("hidden");
+      document.removeEventListener("keydown", onKeydown);
+      cancelOverwrite.removeEventListener("click", onCancel);
+      confirmOverwrite.removeEventListener("click", onConfirm);
+      duplicateDialog.removeEventListener("click", onBackdrop);
+      if (previousFocus && typeof previousFocus.focus === "function") previousFocus.focus();
+      resolve(confirmed);
+    };
+    const onCancel = () => close(false);
+    const onConfirm = () => close(true);
+    const onBackdrop = (event) => { if (event.target === duplicateDialog) close(false); };
+    const onKeydown = (event) => {
+      if (event.key === "Escape") { event.preventDefault(); close(false); return; }
+      if (event.key !== "Tab") return;
+      const current = focusable.indexOf(document.activeElement);
+      if (event.shiftKey && current <= 0) { event.preventDefault(); focusable[focusable.length - 1].focus(); }
+      else if (!event.shiftKey && current === focusable.length - 1) { event.preventDefault(); focusable[0].focus(); }
+    };
+    cancelOverwrite.addEventListener("click", onCancel);
+    confirmOverwrite.addEventListener("click", onConfirm);
+    duplicateDialog.addEventListener("click", onBackdrop);
+    document.addEventListener("keydown", onKeydown);
+    duplicateDialog.classList.remove("hidden");
+    cancelOverwrite.focus();
+  });
+}
+
+async function submitImport(form, overwrite) {
+  const formData = new FormData(form);
+  if (overwrite) formData.append("overwrite", "1");
+  return api("/api/admin/import", { method: "POST", body: formData });
+}
+
 document.querySelector("#importForm").addEventListener("submit", async (event) => {
   event.preventDefault(); hideNotice(importNotice);
   const form = event.currentTarget;
   const button = form.querySelector("button[type=submit]");
+  const fileInput = form.querySelector('input[type="file"]');
+  const selectedFile = fileInput.files[0];
+  if (!selectedFile) { showNotice(importNotice, "请选择 .xlsx 文件", true); return; }
   form.setAttribute("aria-busy", "true");
-  button.disabled = true; button.textContent = "正在导入…";
+  button.disabled = true; button.textContent = "正在检查…";
   try {
-    const data = await api("/api/admin/import", { method: "POST", body: new FormData(form) });
-    showNotice(importNotice, `导入完成：${data.result.district} ${data.result.year}年，共 ${data.result.imported_rows} 条记录。`);
-    form.querySelector('input[type="file"]').value = "";
+    const conflict = await api(`/api/admin/import-conflict?filename=${encodeURIComponent(selectedFile.name)}`);
+    let overwrite = false;
+    if (conflict.conflict) {
+      overwrite = await confirmDuplicateImport();
+      if (!overwrite) return;
+    }
+    button.textContent = "正在导入…";
+    let data;
+    try {
+      data = await submitImport(form, overwrite);
+    } catch (error) {
+      if (error.code !== "duplicate_source_file" || overwrite) throw error;
+      overwrite = await confirmDuplicateImport();
+      if (!overwrite) return;
+      button.textContent = "正在导入…";
+      data = await submitImport(form, true);
+    }
+    const action = data.result.overwritten ? "覆盖完成" : "导入完成";
+    showNotice(importNotice, `${action}：${data.result.district} ${data.result.year}年，共 ${data.result.imported_rows} 条记录。`);
+    fileInput.value = "";
     await loadAdmin();
   } catch (error) { showNotice(importNotice, error.message, true); }
   finally { button.disabled = false; button.textContent = "导入数据"; form.removeAttribute("aria-busy"); }
